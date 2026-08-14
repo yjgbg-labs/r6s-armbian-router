@@ -17,15 +17,23 @@
 5. Confirm unsolicited WAN input is dropped.
 6. Reboot twice and repeat DHCP, DNS and forwarding checks.
 
-## RTL8832BU Validation
+## Wi-Fi Validation
 
 1. Confirm `lsusb` reports the expected Realtek VID/PID.
-2. Confirm `rtw89_8852bu` is loaded and no third-party DKMS driver is present.
+2. Confirm the expected wireless driver is loaded and AP mode is advertised.
 3. Confirm `iw phy` lists AP mode and the 2.4 GHz channels allowed in `CN`.
 4. Start with channel 1, 6 or 11, 20 MHz, WPA2-PSK/CCMP and AX disabled.
 5. Test at least one legacy 2.4 GHz IoT device and one modern client.
 6. Run a sustained transfer while monitoring disconnects, USB resets and heat.
-7. Enable AX only after the compatibility test passes again.
+7. Confirm `groot-router-wifi-prepare.service` handles ZeroCD before hostapd.
+
+## r8125 Validation
+
+1. Confirm `r8125` is loaded and `r8169` is not loaded.
+2. Confirm `rx_queues=2` and `tx_queues=2`.
+3. Confirm `wan` and `lan1` use the fixed MAC addresses and join `br-lan`.
+4. Confirm `groot-r8125.service` applies the expected CPU affinity.
+5. Confirm `r6s-router-verify.service` reports `all checks passed`.
 
 ## Performance and Stability
 

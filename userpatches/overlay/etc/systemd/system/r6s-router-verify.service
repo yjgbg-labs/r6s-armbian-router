@@ -1,0 +1,13 @@
+[Unit]
+Description=Verify R6S router startup state
+Wants=network-online.target
+After=network-online.target groot-r8125.service nftables.service dnsmasq.service
+After=groot-router-wifi-prepare.service hostapd.service groot-router-qos.service mihomo.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/r6s-router-verify
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

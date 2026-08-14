@@ -20,16 +20,14 @@ die() {
 # shellcheck source=/dev/null
 . "$CONFIG"
 
-: "${WIFI_ENABLED:=0}"
-: "${WIFI_SSID:=}"
-: "${WIFI_PSK:=}"
-: "${WIFI_COUNTRY:=CN}"
-: "${WIFI_CHANNEL:=6}"
-: "${WIFI_ENABLE_AX:=0}"
 : "${WAN_INTERFACE:=lan2}"
+: "${WAN_MAC:=06:A5:73:3A:20:1F}"
 : "${LAN_INTERFACE_1:=lan1}"
+: "${LAN_INTERFACE_1_MAC:=0E:3E:80:DF:AF:12}"
 : "${LAN_INTERFACE_2:=wan}"
+: "${LAN_INTERFACE_2_MAC:=0A:30:61:12:37:D8}"
 : "${LAN_CIDR:=10.0.0.1/16}"
+: "${LAN_BRIDGE_MAC:=0A:30:61:12:37:D9}"
 : "${DHCP_START:=10.0.0.100}"
 : "${DHCP_END:=10.0.0.249}"
 : "${DHCP_LEASE:=12h}"
@@ -37,30 +35,22 @@ die() {
 for interface in "$WAN_INTERFACE" "$LAN_INTERFACE_1" "$LAN_INTERFACE_2"; do
 	[[ "$interface" =~ ^[a-zA-Z0-9_.-]+$ ]] || die "invalid interface name: $interface"
 done
-[[ "$WIFI_ENABLED" =~ ^[01]$ ]] || die "WIFI_ENABLED must be 0 or 1"
-[[ "$WIFI_ENABLE_AX" =~ ^[01]$ ]] || die "WIFI_ENABLE_AX must be 0 or 1"
-[[ "$WIFI_COUNTRY" =~ ^[A-Z]{2}$ ]] || die "WIFI_COUNTRY must be an ISO country code"
-[[ "$WIFI_CHANNEL" =~ ^(1|6|11)$ ]] || die "WIFI_CHANNEL must be 1, 6 or 11"
 [[ "$LAN_CIDR" =~ ^[0-9.]+/[0-9]+$ ]] || die "invalid LAN_CIDR"
 [[ "$DHCP_START" =~ ^[0-9.]+$ && "$DHCP_END" =~ ^[0-9.]+$ ]] || die "invalid DHCP range"
 [[ "$DHCP_LEASE" =~ ^[0-9]+[mhdw]$ ]] || die "invalid DHCP_LEASE"
 
-if [[ "$WIFI_ENABLED" == 1 ]]; then
-	(( ${#WIFI_SSID} >= 1 && ${#WIFI_SSID} <= 32 )) || die "WIFI_SSID must be 1-32 characters"
-	(( ${#WIFI_PSK} >= 8 && ${#WIFI_PSK} <= 63 )) || die "WIFI_PSK must be 8-63 characters"
-	[[ "$WIFI_SSID" != *$'\n'* && "$WIFI_PSK" != *$'\n'* ]] || die "Wi-Fi values cannot contain newlines"
-fi
+for mac in "$WAN_MAC" "$LAN_INTERFACE_1_MAC" "$LAN_INTERFACE_2_MAC" "$LAN_BRIDGE_MAC"; do
+	[[ "$mac" =~ ^([[:xdigit:]]{2}:){5}[[:xdigit:]]{2}$ ]] || die "invalid MAC address: $mac"
+done
 
 LAN_ADDRESS="${LAN_CIDR%/*}"
 NETPLAN_FILE="$(root_path /etc/netplan/60-r6s-router.yaml)"
 DNSMASQ_FILE="$(root_path /etc/dnsmasq.d/r6s-router.conf)"
-HOSTAPD_FILE="$(root_path /etc/hostapd/r6s-router.conf)"
 NFTABLES_FILE="$(root_path /etc/nftables.conf)"
 
 install -d -m 0755 \
 	"$(dirname -- "$NETPLAN_FILE")" \
-	"$(dirname -- "$DNSMASQ_FILE")" \
-	"$(dirname -- "$HOSTAPD_FILE")"
+	"$(dirname -- "$DNSMASQ_FILE")"
 
 cat > "$NETPLAN_FILE" <<EOF
 network:
@@ -71,18 +61,22 @@ network:
       dhcp4: true
       dhcp6: false
       optional: true
+      macaddress: ${WAN_MAC}
     ${LAN_INTERFACE_1}:
       dhcp4: false
       dhcp6: false
       optional: true
+      macaddress: ${LAN_INTERFACE_1_MAC}
     ${LAN_INTERFACE_2}:
       dhcp4: false
       dhcp6: false
       optional: true
+      macaddress: ${LAN_INTERFACE_2_MAC}
   bridges:
     br-lan:
       interfaces: [${LAN_INTERFACE_1}, ${LAN_INTERFACE_2}]
       addresses: [${LAN_CIDR}]
+      macaddress: ${LAN_BRIDGE_MAC}
       dhcp4: false
       dhcp6: false
       optional: true
@@ -103,30 +97,6 @@ dhcp-range=${DHCP_START},${DHCP_END},${DHCP_LEASE}
 dhcp-option=option:router,${LAN_ADDRESS}
 dhcp-option=option:dns-server,${LAN_ADDRESS}
 cache-size=1000
-EOF
-
-ax_setting="ieee80211ax=0"
-[[ "$WIFI_ENABLE_AX" == 1 ]] && ax_setting="ieee80211ax=1"
-cat > "$HOSTAPD_FILE" <<EOF
-driver=nl80211
-interface=__AUTO__
-bridge=br-lan
-ssid=${WIFI_SSID}
-country_code=${WIFI_COUNTRY}
-ieee80211d=1
-hw_mode=g
-channel=${WIFI_CHANNEL}
-ieee80211n=1
-${ax_setting}
-wmm_enabled=1
-auth_algs=1
-wpa=2
-wpa_key_mgmt=WPA-PSK
-rsn_pairwise=CCMP
-wpa_passphrase=${WIFI_PSK}
-ieee80211w=0
-ignore_broadcast_ssid=0
-utf8_ssid=1
 EOF
 
 cat > "$NFTABLES_FILE" <<EOF
@@ -172,7 +142,7 @@ table ip nat {
 }
 EOF
 
-chmod 600 "$NETPLAN_FILE" "$HOSTAPD_FILE" "$NFTABLES_FILE"
+chmod 600 "$NETPLAN_FILE" "$NFTABLES_FILE"
 chmod 644 "$DNSMASQ_FILE"
 
 if [[ "$DRY_RUN" != 1 ]]; then

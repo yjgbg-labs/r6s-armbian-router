@@ -23,16 +23,14 @@ grep -q '^CONFIG_RTW89_8852BU=m$' \
 mkdir -p "$R6S_STAGED_USERPATCHES"
 cp -a "$R6S_PROJECT_ROOT/userpatches/." "$R6S_STAGED_USERPATCHES/"
 
-WIFI_ENABLED=0
-WIFI_SSID=""
-WIFI_PSK=""
-WIFI_COUNTRY=CN
-WIFI_CHANNEL=6
-WIFI_ENABLE_AX=0
 WAN_INTERFACE=lan2
+WAN_MAC=06:A5:73:3A:20:1F
 LAN_INTERFACE_1=lan1
+LAN_INTERFACE_1_MAC=0E:3E:80:DF:AF:12
 LAN_INTERFACE_2=wan
+LAN_INTERFACE_2_MAC=0A:30:61:12:37:D8
 LAN_CIDR=10.0.0.1/16
+LAN_BRIDGE_MAC=0A:30:61:12:37:D9
 DHCP_START=10.0.0.100
 DHCP_END=10.0.0.249
 DHCP_LEASE=12h
@@ -52,20 +50,25 @@ router_config="$R6S_STAGED_USERPATCHES/overlay/etc/r6s-router/router.env"
 install -d -m 0755 "$(dirname -- "$router_config")"
 umask 077
 {
-	printf 'WIFI_ENABLED=%q\n' "$WIFI_ENABLED"
-	printf 'WIFI_SSID=%q\n' "$WIFI_SSID"
-	printf 'WIFI_PSK=%q\n' "$WIFI_PSK"
-	printf 'WIFI_COUNTRY=%q\n' "$WIFI_COUNTRY"
-	printf 'WIFI_CHANNEL=%q\n' "$WIFI_CHANNEL"
-	printf 'WIFI_ENABLE_AX=%q\n' "$WIFI_ENABLE_AX"
 	printf 'WAN_INTERFACE=%q\n' "$WAN_INTERFACE"
+	printf 'WAN_MAC=%q\n' "$WAN_MAC"
 	printf 'LAN_INTERFACE_1=%q\n' "$LAN_INTERFACE_1"
+	printf 'LAN_INTERFACE_1_MAC=%q\n' "$LAN_INTERFACE_1_MAC"
 	printf 'LAN_INTERFACE_2=%q\n' "$LAN_INTERFACE_2"
+	printf 'LAN_INTERFACE_2_MAC=%q\n' "$LAN_INTERFACE_2_MAC"
 	printf 'LAN_CIDR=%q\n' "$LAN_CIDR"
+	printf 'LAN_BRIDGE_MAC=%q\n' "$LAN_BRIDGE_MAC"
 	printf 'DHCP_START=%q\n' "$DHCP_START"
 	printf 'DHCP_END=%q\n' "$DHCP_END"
 	printf 'DHCP_LEASE=%q\n' "$DHCP_LEASE"
 } > "$router_config"
+
+r8125_config="$R6S_STAGED_USERPATCHES/overlay/etc/r6s-router/r8125.env"
+{
+	printf 'R8125_VERSION=%q\n' "$R6S_R8125_VERSION"
+	printf 'R8125_SOURCE_URL=%q\n' "$R6S_R8125_SOURCE_URL"
+	printf 'R8125_SOURCE_SHA256=%q\n' "$R6S_R8125_SOURCE_SHA256"
+} > "$r8125_config"
 
 authorized_keys="$R6S_STAGED_USERPATCHES/overlay/home/router/.ssh/authorized_keys"
 install -d -m 0700 "$(dirname -- "$authorized_keys")"

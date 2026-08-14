@@ -79,10 +79,13 @@ collect_network_state
 section "SERVICES"
 systemctl status \
 	r6s-router-prepare.service \
+	groot-r8125.service \
 	systemd-networkd.service \
 	systemd-resolved.service \
 	dnsmasq.service \
 	nftables.service \
+	hostapd.service \
+	mihomo.service \
 	--no-pager --full
 
 section "FIREWALL"

@@ -11,21 +11,24 @@ kernel so RTL8832BU/RTL8852BU can use the upstream `rtw89_8852bu` driver.
 - A `br-lan` bridge over Armbian `lan1` and `wan`, the two PCIe 2.5GbE
   ports currently used as LAN, at `10.0.0.1/16`.
 - IPv4 forwarding, nftables firewall and WAN masquerading.
-- dnsmasq DNS cache and DHCP service for LAN clients.
-- Optional 2.4 GHz WPA2 access point with 20 MHz-friendly settings.
+- dnsmasq DHCP service for LAN clients; Mihomo owns DNS on `10.0.0.1`.
+- The custom RSS-capable r8125 driver loaded directly from initramfs with two
+  RX and TX queues. The stock r8169 driver is disabled.
+- Stable MAC addresses for every Ethernet interface and `br-lan`.
+- Mihomo transparent proxying. Wi-Fi and QoS remain runtime configuration
+  managed by `groot-cli` rather than duplicated in the base image.
 - Key-only SSH as the `router` user; password login and root SSH are disabled.
 - Kernel and BSP packages frozen until the R6S Ethernet and Wi-Fi paths pass
   qualification.
 
-IPv6 routing, Mihomo, Tailscale and migration of the existing FriendlyWrt
-configuration are deliberately outside the first bootable image.
+IPv6 routing and Tailscale are outside the current image scope.
 
 ## Build Configuration
 
 Copy `config.local.env.example` to `config.local.env`. The local file is ignored
 by Git. At minimum, point `SSH_AUTHORIZED_KEY_FILE` to an OpenSSH public key.
-Wi-Fi can remain disabled for the first wired boot, then be configured in
-`/etc/r6s-router/router.env` on the device.
+Wi-Fi credentials are deliberately not embedded in the image. Apply the
+runtime router configuration with `groot router write` after first boot.
 
 Normal project operations use `groot jobs`:
 
@@ -49,19 +52,8 @@ to commit `8de11a017f7f05a82c77850f8322928cb6a3b70c`.
 4. Connect a test machine to LAN1 or LAN2.
 5. Boot from microSD and obtain a DHCP lease on the test machine.
 6. SSH to `router@10.0.0.1` with the public key selected at build time.
-7. Validate all Ethernet ports before enabling Wi-Fi.
-
-To enable Wi-Fi after the first wired boot, edit
-`/etc/r6s-router/router.env`, set the SSID and PSK, then run:
-
-```bash
-sudo systemctl restart r6s-router-prepare.service
-sudo systemctl restart r6s-router-wifi.service
-```
-
-Use the USB 2.0 port for a 2.4 GHz-only access point. Check that
-`iw phy` advertises AP mode and that `rtw89_8852bu` owns the device before
-treating the wireless path as production-ready.
+7. Confirm only `r8125` is loaded and both PCIe interfaces expose 2RX/2TX.
+8. Apply Wi-Fi and QoS with `groot router write`.
 
 ## Flash Safety
 

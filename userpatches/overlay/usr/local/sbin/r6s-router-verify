@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+CONFIG="${R6S_CONFIG:-/etc/r6s-router/router.env}"
+[[ -r "$CONFIG" ]] || { printf 'missing configuration: %s\n' "$CONFIG" >&2; exit 1; }
+# shellcheck source=/dev/null
+. "$CONFIG"
+
+: "${WAN_INTERFACE:=lan2}"
+: "${WAN_MAC:=06:A5:73:3A:20:1F}"
+: "${LAN_INTERFACE_1:=lan1}"
+: "${LAN_INTERFACE_1_MAC:=0E:3E:80:DF:AF:12}"
+: "${LAN_INTERFACE_2:=wan}"
+: "${LAN_INTERFACE_2_MAC:=0A:30:61:12:37:D8}"
+: "${LAN_BRIDGE_MAC:=0A:30:61:12:37:D9}"
+
+fail() {
+	printf 'r6s-router-verify: %s\n' "$*" >&2
+	exit 1
+}
+
+check_mac() {
+	local interface="$1"
+	local expected="${2,,}"
+	local actual
+
+	[[ -r "/sys/class/net/${interface}/address" ]] || fail "missing interface: ${interface}"
+	actual="$(<"/sys/class/net/${interface}/address")"
+	[[ "$actual" == "$expected" ]] || fail "${interface} MAC is ${actual}, expected ${expected}"
+}
+
+check_bridge_member() {
+	local interface="$1"
+	local master
+
+	[[ -L "/sys/class/net/${interface}/master" ]] || fail "${interface} has no bridge master"
+	master="$(basename "$(readlink -f "/sys/class/net/${interface}/master")")"
+	[[ "$master" == br-lan ]] || fail "${interface} master is ${master}, expected br-lan"
+}
+
+check_queues() {
+	local interface="$1"
+	local direction="$2"
+	local count
+
+	count="$(find "/sys/class/net/${interface}/queues" -maxdepth 1 -type d -name "${direction}-*" | wc -l)"
+	[[ "$count" == 2 ]] || fail "${interface} has ${count} ${direction} queues, expected 2"
+}
+
+[[ -d /sys/module/r8125 ]] || fail "r8125 is not loaded"
+[[ ! -d /sys/module/r8169 ]] || fail "r8169 is loaded"
+[[ ! -d /sys/module/hantro_vpu ]] || fail "hantro_vpu is loaded"
+
+check_mac "$WAN_INTERFACE" "$WAN_MAC"
+check_mac "$LAN_INTERFACE_1" "$LAN_INTERFACE_1_MAC"
+check_mac "$LAN_INTERFACE_2" "$LAN_INTERFACE_2_MAC"
+check_mac br-lan "$LAN_BRIDGE_MAC"
+check_bridge_member "$LAN_INTERFACE_1"
+check_bridge_member "$LAN_INTERFACE_2"
+
+for interface in "$LAN_INTERFACE_1" "$LAN_INTERFACE_2"; do
+	[[ "$(basename "$(readlink -f "/sys/class/net/${interface}/device/driver")")" == r8125 ]] || \
+		fail "${interface} is not using r8125"
+	check_queues "$interface" rx
+	check_queues "$interface" tx
+done
+
+for service in groot-r8125.service systemd-networkd.service nftables.service dnsmasq.service; do
+	systemctl is-active --quiet "$service" || fail "${service} is not active"
+done
+
+if systemctl is-enabled --quiet groot-router-wifi-prepare.service 2>/dev/null; then
+	wifi_result="$(systemctl show groot-router-wifi-prepare.service --value -p Result)"
+	wifi_status="$(systemctl show groot-router-wifi-prepare.service --value -p ExecMainStatus)"
+	wifi_started="$(systemctl show groot-router-wifi-prepare.service --value -p ExecMainStartTimestampMonotonic)"
+	[[ "$wifi_result" == success && "$wifi_status" == 0 && "$wifi_started" != 0 ]] || \
+		fail "groot-router-wifi-prepare.service did not complete successfully this boot"
+fi
+
+for service in hostapd.service groot-router-qos.service mihomo.service; do
+	systemctl is-enabled --quiet "$service" 2>/dev/null || continue
+	systemctl is-active --quiet "$service" || fail "enabled service ${service} is not active"
+done
+
+printf 'r6s-router-verify: all checks passed\n'
