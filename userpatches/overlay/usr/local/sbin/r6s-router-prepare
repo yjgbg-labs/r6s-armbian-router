@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+umask 077
+
+ROOT="${R6S_ROOT:-}"
+CONFIG="${R6S_CONFIG:-${ROOT}/etc/r6s-router/router.env}"
+DRY_RUN="${R6S_DRY_RUN:-0}"
+
+root_path() {
+	printf '%s%s' "$ROOT" "$1"
+}
+
+die() {
+	printf 'r6s-router-prepare: %s\n' "$*" >&2
+	exit 1
+}
+
+[[ -f "$CONFIG" ]] || die "missing configuration: $CONFIG"
+# shellcheck source=/dev/null
+. "$CONFIG"
+
+: "${WIFI_ENABLED:=0}"
+: "${WIFI_SSID:=}"
+: "${WIFI_PSK:=}"
+: "${WIFI_COUNTRY:=CN}"
+: "${WIFI_CHANNEL:=6}"
+: "${WIFI_ENABLE_AX:=0}"
+: "${WAN_INTERFACE:=lan2}"
+: "${LAN_INTERFACE_1:=lan1}"
+: "${LAN_INTERFACE_2:=wan}"
+: "${LAN_CIDR:=10.0.0.1/16}"
+: "${DHCP_START:=10.0.0.100}"
+: "${DHCP_END:=10.0.0.249}"
+: "${DHCP_LEASE:=12h}"
+
+for interface in "$WAN_INTERFACE" "$LAN_INTERFACE_1" "$LAN_INTERFACE_2"; do
+	[[ "$interface" =~ ^[a-zA-Z0-9_.-]+$ ]] || die "invalid interface name: $interface"
+done
+[[ "$WIFI_ENABLED" =~ ^[01]$ ]] || die "WIFI_ENABLED must be 0 or 1"
+[[ "$WIFI_ENABLE_AX" =~ ^[01]$ ]] || die "WIFI_ENABLE_AX must be 0 or 1"
+[[ "$WIFI_COUNTRY" =~ ^[A-Z]{2}$ ]] || die "WIFI_COUNTRY must be an ISO country code"
+[[ "$WIFI_CHANNEL" =~ ^(1|6|11)$ ]] || die "WIFI_CHANNEL must be 1, 6 or 11"
+[[ "$LAN_CIDR" =~ ^[0-9.]+/[0-9]+$ ]] || die "invalid LAN_CIDR"
+[[ "$DHCP_START" =~ ^[0-9.]+$ && "$DHCP_END" =~ ^[0-9.]+$ ]] || die "invalid DHCP range"
+[[ "$DHCP_LEASE" =~ ^[0-9]+[mhdw]$ ]] || die "invalid DHCP_LEASE"
+
+if [[ "$WIFI_ENABLED" == 1 ]]; then
+	(( ${#WIFI_SSID} >= 1 && ${#WIFI_SSID} <= 32 )) || die "WIFI_SSID must be 1-32 characters"
+	(( ${#WIFI_PSK} >= 8 && ${#WIFI_PSK} <= 63 )) || die "WIFI_PSK must be 8-63 characters"
+	[[ "$WIFI_SSID" != *$'\n'* && "$WIFI_PSK" != *$'\n'* ]] || die "Wi-Fi values cannot contain newlines"
+fi
+
+LAN_ADDRESS="${LAN_CIDR%/*}"
+NETPLAN_FILE="$(root_path /etc/netplan/60-r6s-router.yaml)"
+DNSMASQ_FILE="$(root_path /etc/dnsmasq.d/r6s-router.conf)"
+HOSTAPD_FILE="$(root_path /etc/hostapd/r6s-router.conf)"
+NFTABLES_FILE="$(root_path /etc/nftables.conf)"
+
+install -d -m 0755 \
+	"$(dirname -- "$NETPLAN_FILE")" \
+	"$(dirname -- "$DNSMASQ_FILE")" \
+	"$(dirname -- "$HOSTAPD_FILE")"
+
+cat > "$NETPLAN_FILE" <<EOF
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ${WAN_INTERFACE}:
+      dhcp4: true
+      dhcp6: false
+      optional: true
+    ${LAN_INTERFACE_1}:
+      dhcp4: false
+      dhcp6: false
+      optional: true
+    ${LAN_INTERFACE_2}:
+      dhcp4: false
+      dhcp6: false
+      optional: true
+  bridges:
+    br-lan:
+      interfaces: [${LAN_INTERFACE_1}, ${LAN_INTERFACE_2}]
+      addresses: [${LAN_CIDR}]
+      dhcp4: false
+      dhcp6: false
+      optional: true
+      parameters:
+        stp: false
+        forward-delay: 0
+EOF
+
+cat > "$DNSMASQ_FILE" <<EOF
+interface=br-lan
+bind-dynamic
+domain-needed
+bogus-priv
+local=/lan/
+domain=lan
+dhcp-authoritative
+dhcp-range=${DHCP_START},${DHCP_END},${DHCP_LEASE}
+dhcp-option=option:router,${LAN_ADDRESS}
+dhcp-option=option:dns-server,${LAN_ADDRESS}
+cache-size=1000
+EOF
+
+ax_setting="ieee80211ax=0"
+[[ "$WIFI_ENABLE_AX" == 1 ]] && ax_setting="ieee80211ax=1"
+cat > "$HOSTAPD_FILE" <<EOF
+driver=nl80211
+interface=__AUTO__
+bridge=br-lan
+ssid=${WIFI_SSID}
+country_code=${WIFI_COUNTRY}
+ieee80211d=1
+hw_mode=g
+channel=${WIFI_CHANNEL}
+ieee80211n=1
+${ax_setting}
+wmm_enabled=1
+auth_algs=1
+wpa=2
+wpa_key_mgmt=WPA-PSK
+rsn_pairwise=CCMP
+wpa_passphrase=${WIFI_PSK}
+ieee80211w=0
+ignore_broadcast_ssid=0
+utf8_ssid=1
+EOF
+
+cat > "$NFTABLES_FILE" <<EOF
+#!/usr/sbin/nft -f
+
+flush ruleset
+
+table inet filter {
+  chain input {
+    type filter hook input priority filter; policy drop;
+    iifname "lo" accept
+    # The system TCP stack reinjects NATed connections through Meta.
+    iifname "Meta" ip saddr 198.18.0.2 ip daddr 198.18.0.1 meta l4proto tcp counter accept
+    ct state invalid drop
+    ct state established,related accept
+    meta l4proto { icmp, ipv6-icmp } accept
+    iifname "br-lan" accept
+    iifname "${WAN_INTERFACE}" udp sport 67 udp dport 68 accept
+  }
+
+  chain forward {
+    type filter hook forward priority filter; policy drop;
+    # Mihomo's default TUN device is named Meta.
+    iifname "br-lan" oifname "Meta" accept
+    iifname "Meta" oifname "br-lan" accept
+    ct state invalid drop
+    ct state established,related accept
+    iifname "br-lan" oifname "br-lan" accept
+    iifname { "${LAN_INTERFACE_1}", "${LAN_INTERFACE_2}" } oifname { "${LAN_INTERFACE_1}", "${LAN_INTERFACE_2}" } accept
+    iifname "br-lan" oifname "${WAN_INTERFACE}" accept
+  }
+
+  chain output {
+    type filter hook output priority filter; policy accept;
+  }
+}
+
+table ip nat {
+  chain postrouting {
+    type nat hook postrouting priority srcnat; policy accept;
+    oifname "${WAN_INTERFACE}" masquerade
+  }
+}
+EOF
+
+chmod 600 "$NETPLAN_FILE" "$HOSTAPD_FILE" "$NFTABLES_FILE"
+chmod 644 "$DNSMASQ_FILE"
+
+if [[ "$DRY_RUN" != 1 ]]; then
+	/usr/sbin/netplan generate
+	/usr/sbin/sysctl --system >/dev/null
+fi

@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+CONFIG=/etc/r6s-router/router.env
+HOSTAPD_CONFIG=/etc/hostapd/r6s-router.conf
+[[ -f "$CONFIG" ]] || exit 0
+# shellcheck source=/dev/null
+. "$CONFIG"
+
+[[ "${WIFI_ENABLED:-0}" == 1 ]] || exit 0
+
+interface="${WIFI_INTERFACE:-}"
+phy_name=""
+
+for _ in {1..30}; do
+	if [[ -n "$interface" && -d "/sys/class/net/$interface/phy80211" ]]; then
+		phy_name="$(basename -- "$(readlink -f -- "/sys/class/net/$interface/phy80211")")"
+		break
+	fi
+
+	for phy_path in /sys/class/ieee80211/phy*; do
+		[[ -d "$phy_path" ]] || continue
+		for net_path in "$phy_path"/device/net/*; do
+			[[ -e "$net_path" ]] || continue
+			interface="$(basename -- "$net_path")"
+			phy_name="$(basename -- "$phy_path")"
+			break 2
+		done
+	done
+
+	[[ -n "$interface" ]] && break
+	sleep 1
+done
+
+[[ "$interface" =~ ^[a-zA-Z0-9_.-]+$ ]] || {
+	printf 'r6s-router-hostapd: no wireless interface found\n' >&2
+	exit 1
+}
+
+if ! iw phy "$phy_name" info | grep -Eq '^[[:space:]]+\* AP$'; then
+	printf 'r6s-router-hostapd: %s does not advertise AP mode\n' "$interface" >&2
+	exit 1
+fi
+
+install -d -m 0755 /run/r6s-router
+sed "s/^interface=.*/interface=${interface}/" "$HOSTAPD_CONFIG" > /run/r6s-router/hostapd.conf
+chmod 600 /run/r6s-router/hostapd.conf
+exec /usr/sbin/hostapd -s /run/r6s-router/hostapd.conf

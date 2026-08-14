@@ -1,0 +1,13 @@
+[Unit]
+Description=Render NanoPi R6S router configuration
+DefaultDependencies=no
+After=local-fs.target
+Before=network-pre.target nftables.service dnsmasq.service r6s-router-wifi.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/r6s-router-prepare
+RemainAfterExit=yes
+
+[Install]
+WantedBy=network-pre.target

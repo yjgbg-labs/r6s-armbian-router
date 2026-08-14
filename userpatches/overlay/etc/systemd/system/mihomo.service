@@ -1,0 +1,17 @@
+[Unit]
+Description=Mihomo transparent proxy
+Wants=network-online.target
+After=network-online.target
+Before=dnsmasq.service
+
+[Service]
+Type=simple
+ExecStartPre=/usr/sbin/modprobe tun
+ExecStartPre=/usr/local/bin/mihomo -t -d /etc/mihomo -f /etc/mihomo/config.yaml
+ExecStart=/usr/local/bin/mihomo -d /etc/mihomo -f /etc/mihomo/config.yaml
+Restart=on-failure
+RestartSec=3
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target
