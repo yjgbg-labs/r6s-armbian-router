@@ -32,7 +32,7 @@ function install_r6s_r8125() {
 	mapfile -t kernels < <(find "${SDCARD}/lib/modules" -mindepth 1 -maxdepth 1 -type d -printf '%f\n')
 	(( ${#kernels[@]} == 1 )) || exit_with_error "Expected one target kernel, found: ${kernels[*]}"
 	kernel="${kernels[0]}"
-	[[ -e "${SDCARD}/lib/modules/${kernel}/build/Makefile" ]] || \
+	chroot_sdcard test -e "/lib/modules/${kernel}/build/Makefile" || \
 		exit_with_error "Missing target kernel headers for ${kernel}"
 
 	chroot_sdcard make -C "/lib/modules/${kernel}/build" \

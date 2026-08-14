@@ -62,6 +62,14 @@ grep -q 'iommu.passthrough=1' \
 	"$R6S_PROJECT_ROOT/userpatches/extensions/r6s-router.sh"
 grep -q 'declare -g INSTALL_HEADERS=yes' \
 	"$R6S_PROJECT_ROOT/userpatches/extensions/r6s-router.sh"
+grep -q 'chroot_sdcard test -e "/lib/modules/.*build/Makefile"' \
+	"$R6S_PROJECT_ROOT/userpatches/extensions/r6s-router.sh"
+grep -q 'KERNELS=="0003:31:00.0", NAME:="wan"' \
+	"$R6S_PROJECT_ROOT/userpatches/overlay/etc/udev/rules.d/70-persistent-net.rules"
+grep -q 'KERNELS=="0004:41:00.0", NAME:="lan1"' \
+	"$R6S_PROJECT_ROOT/userpatches/overlay/etc/udev/rules.d/70-persistent-net.rules"
+! grep -q '90-wan-mac-test\|16:c9:1c:42:a5:dc' \
+	"$R6S_PROJECT_ROOT/userpatches/overlay/usr/local/sbin/r6s-router-diagnose"
 grep -q '^WantedBy=multi-user.target$' \
 	"$R6S_PROJECT_ROOT/userpatches/overlay/etc/systemd/system/r6s-router-verify.service"
 grep -q 'groot-router-qos.service mihomo.service' \
