@@ -85,7 +85,7 @@ grep -q '^ExecStartPre=/usr/sbin/modprobe tun$' \
 	"$R6S_PROJECT_ROOT/userpatches/overlay/etc/systemd/system/mihomo.service"
 grep -q '^R6S_MIHOMO_SHA256=' "$R6S_PROJECT_ROOT/config.env"
 grep -q '^R6S_R8125_SOURCE_SHA256=' "$R6S_PROJECT_ROOT/config.env"
-grep -q 'paired10' "$R6S_PROJECT_ROOT/config.env"
+grep -q 'paired11' "$R6S_PROJECT_ROOT/config.env"
 grep -q '^blacklist r8169$' \
 	"$R6S_PROJECT_ROOT/userpatches/overlay/etc/modprobe.d/groot-r8125.conf"
 grep -q '^blacklist hantro_vpu$' \
@@ -115,7 +115,9 @@ grep -q '^After=network-online.target nftables.service groot-r8125.service$' \
 ! grep -q 'dnsmasq.service' \
 	"$R6S_PROJECT_ROOT/userpatches/overlay/etc/systemd/system/mihomo.service"
 test ! -e "$R6S_PROJECT_ROOT/userpatches/overlay/etc/systemd/system/dnsmasq.service.d/r6s-mihomo.conf"
-grep -q '^OnUnitActiveSec=1min$' \
+grep -Fq 'OnCalendar=*-*-* *:*:00' \
+	"$R6S_PROJECT_ROOT/userpatches/overlay/etc/systemd/system/r6s-mihomo-health.timer"
+grep -q '^Persistent=true$' \
 	"$R6S_PROJECT_ROOT/userpatches/overlay/etc/systemd/system/r6s-mihomo-health.timer"
 grep -q 'dig .*@.*DNS_NAME' \
 	"$R6S_PROJECT_ROOT/userpatches/overlay/usr/local/sbin/r6s-mihomo-health"
