@@ -1,0 +1,9 @@
+[Unit]
+Description=Check Mihomo DNS and proxy egress
+ConditionPathExists=/etc/mihomo/config.yaml
+Wants=network-online.target mihomo.service
+After=network-online.target mihomo.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/r6s-mihomo-health

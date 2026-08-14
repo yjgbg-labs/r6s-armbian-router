@@ -6,7 +6,7 @@ function extension_prepare_config__r6s_router_packages() {
 	display_alert "Extension: ${EXTENSION}" "Adding router packages" "info"
 	add_packages_to_image \
 		hostapd dnsmasq nftables iw wireless-regdb rfkill ethtool \
-		curl ca-certificates sudo build-essential
+		curl ca-certificates dnsutils sudo build-essential
 }
 
 function extension_finish_config__r6s_router_kernel_headers() {
@@ -116,6 +116,7 @@ function post_customize_image__install_r6s_router() {
 	chmod 755 \
 		"${SDCARD}/usr/local/sbin/r6s-router-prepare" \
 		"${SDCARD}/usr/local/sbin/r6s-router-diagnose" \
+		"${SDCARD}/usr/local/sbin/r6s-mihomo-health" \
 		"${SDCARD}/usr/local/sbin/r6s-router-verify"
 
 	[[ -f "${SDCARD}/home/router/.ssh/authorized_keys" ]] || \
@@ -150,6 +151,7 @@ function post_customize_image__install_r6s_router() {
 	chroot_sdcard systemctl enable \
 		r6s-router-prepare.service \
 		r6s-router-verify.service \
+		r6s-mihomo-health.timer \
 		nftables.service \
 		dnsmasq.service
 }

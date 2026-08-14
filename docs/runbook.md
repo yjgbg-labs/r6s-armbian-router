@@ -44,6 +44,9 @@
 
 ## Mihomo Validation
 
+- Confirm dnsmasq listens on UDP 67 but not TCP/UDP 53.
+- Confirm `r6s-mihomo-health.timer` is active and its latest check passed.
+
 - Prefer `tun.stack: mixed`: TCP uses the lower-overhead system stack while UDP
   uses gVisor.
 - Allow the system stack's internal `198.18.0.2 -> 198.18.0.1` TCP traffic on

@@ -24,9 +24,40 @@ R6S_CONFIG="$config" \
 R6S_DRY_RUN=1 \
 	"$R6S_PROJECT_ROOT/userpatches/overlay/usr/local/sbin/r6s-router-prepare"
 
+mkdir -p "$tmp/bin"
+cat > "$tmp/bin/systemctl" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+cat > "$tmp/bin/dig" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$@" > "$MOCK_DIG_LOG"
+printf '142.250.4.94\n'
+EOF
+cat > "$tmp/bin/curl" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$@" > "$MOCK_CURL_LOG"
+EOF
+chmod 755 "$tmp/bin/systemctl" "$tmp/bin/dig" "$tmp/bin/curl"
+cat > "$tmp/mihomo.yaml" <<'EOF'
+mixed-port: 17890
+EOF
+MOCK_CURL_LOG="$tmp/curl.args" \
+MOCK_DIG_LOG="$tmp/dig.args" \
+PATH="$tmp/bin:$PATH" \
+R6S_CONFIG="$config" \
+MIHOMO_CONFIG="$tmp/mihomo.yaml" \
+	"$R6S_PROJECT_ROOT/userpatches/overlay/usr/local/sbin/r6s-mihomo-health"
+grep -q '^@10.0.0.1$' "$tmp/dig.args"
+grep -q '^http://127.0.0.1:17890$' "$tmp/curl.args"
+grep -q '^https://www.gstatic.com/generate_204$' "$tmp/curl.args"
+
 test -f "$tmp/root/etc/netplan/60-r6s-router.yaml"
 test -f "$tmp/root/etc/dnsmasq.d/r6s-router.conf"
 test -f "$tmp/root/etc/nftables.conf"
+grep -q '^port=0$' "$tmp/root/etc/dnsmasq.d/r6s-router.conf"
+! grep -Eq '^(cache-size|domain-needed|bogus-priv|local|server|no-resolv)=' \
+	"$tmp/root/etc/dnsmasq.d/r6s-router.conf"
 grep -q 'interfaces: \[lan1, wan\]' "$tmp/root/etc/netplan/60-r6s-router.yaml"
 grep -q 'addresses: \[10.0.0.1/16\]' "$tmp/root/etc/netplan/60-r6s-router.yaml"
 grep -q 'macaddress: 06:A5:73:3A:20:1F' "$tmp/root/etc/netplan/60-r6s-router.yaml"
@@ -54,6 +85,7 @@ grep -q '^ExecStartPre=/usr/sbin/modprobe tun$' \
 	"$R6S_PROJECT_ROOT/userpatches/overlay/etc/systemd/system/mihomo.service"
 grep -q '^R6S_MIHOMO_SHA256=' "$R6S_PROJECT_ROOT/config.env"
 grep -q '^R6S_R8125_SOURCE_SHA256=' "$R6S_PROJECT_ROOT/config.env"
+grep -q 'paired10' "$R6S_PROJECT_ROOT/config.env"
 grep -q '^blacklist r8169$' \
 	"$R6S_PROJECT_ROOT/userpatches/overlay/etc/modprobe.d/groot-r8125.conf"
 grep -q '^blacklist hantro_vpu$' \
@@ -77,6 +109,18 @@ grep -q 'groot-router-qos.service mihomo.service' \
 grep -q 'check_queues.*tx' \
 	"$R6S_PROJECT_ROOT/userpatches/overlay/usr/local/sbin/r6s-router-verify"
 test -x "$R6S_PROJECT_ROOT/userpatches/overlay/usr/local/sbin/r6s-router-verify"
+test -x "$R6S_PROJECT_ROOT/userpatches/overlay/usr/local/sbin/r6s-mihomo-health"
+grep -q '^After=network-online.target nftables.service groot-r8125.service$' \
+	"$R6S_PROJECT_ROOT/userpatches/overlay/etc/systemd/system/mihomo.service"
+! grep -q 'dnsmasq.service' \
+	"$R6S_PROJECT_ROOT/userpatches/overlay/etc/systemd/system/mihomo.service"
+test ! -e "$R6S_PROJECT_ROOT/userpatches/overlay/etc/systemd/system/dnsmasq.service.d/r6s-mihomo.conf"
+grep -q '^OnUnitActiveSec=1min$' \
+	"$R6S_PROJECT_ROOT/userpatches/overlay/etc/systemd/system/r6s-mihomo-health.timer"
+grep -q 'dig .*@.*DNS_NAME' \
+	"$R6S_PROJECT_ROOT/userpatches/overlay/usr/local/sbin/r6s-mihomo-health"
+grep -q -- '--proxy ' \
+	"$R6S_PROJECT_ROOT/userpatches/overlay/usr/local/sbin/r6s-mihomo-health"
 test ! -e "$R6S_PROJECT_ROOT/userpatches/overlay/etc/systemd/system/r6s-router-wifi.service"
 test ! -e "$R6S_PROJECT_ROOT/userpatches/overlay/usr/local/sbin/r6s-router-hostapd"
 

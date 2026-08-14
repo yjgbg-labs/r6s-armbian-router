@@ -1,8 +1,7 @@
 [Unit]
 Description=Mihomo transparent proxy
-Wants=network-online.target
-After=network-online.target
-Before=dnsmasq.service
+Wants=network-online.target nftables.service groot-r8125.service
+After=network-online.target nftables.service groot-r8125.service
 
 [Service]
 Type=simple

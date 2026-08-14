@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROUTER_CONFIG="${R6S_CONFIG:-/etc/r6s-router/router.env}"
+MIHOMO_CONFIG="${MIHOMO_CONFIG:-/etc/mihomo/config.yaml}"
+DNS_NAME="${MIHOMO_HEALTH_DNS_NAME:-www.gstatic.com}"
+URL="${MIHOMO_HEALTH_URL:-https://www.gstatic.com/generate_204}"
+
+[[ -r "$ROUTER_CONFIG" ]] || { printf 'missing router configuration: %s\n' "$ROUTER_CONFIG" >&2; exit 1; }
+[[ -r "$MIHOMO_CONFIG" ]] || { printf 'missing Mihomo configuration: %s\n' "$MIHOMO_CONFIG" >&2; exit 1; }
+# shellcheck source=/dev/null
+. "$ROUTER_CONFIG"
+
+: "${LAN_CIDR:=10.0.0.1/16}"
+lan_address="${LAN_CIDR%/*}"
+mixed_port="$(sed -n 's/^[[:space:]]*mixed-port:[[:space:]]*\([0-9][0-9]*\).*$/\1/p' "$MIHOMO_CONFIG" | head -n 1)"
+: "${mixed_port:=7890}"
+
+systemctl is-active --quiet mihomo.service
+dig +time=5 +tries=1 +short "@${lan_address}" "$DNS_NAME" A | grep -q .
+curl \
+	--proxy "http://127.0.0.1:${mixed_port}" \
+	--connect-timeout 5 \
+	--max-time 15 \
+	--fail \
+	--silent \
+	--show-error \
+	--output /dev/null \
+	"$URL"
+
+printf 'r6s-mihomo-health: DNS and proxy egress passed\n'

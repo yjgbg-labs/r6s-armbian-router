@@ -86,17 +86,13 @@ network:
 EOF
 
 cat > "$DNSMASQ_FILE" <<EOF
+port=0
 interface=br-lan
 bind-dynamic
-domain-needed
-bogus-priv
-local=/lan/
-domain=lan
 dhcp-authoritative
 dhcp-range=${DHCP_START},${DHCP_END},${DHCP_LEASE}
 dhcp-option=option:router,${LAN_ADDRESS}
 dhcp-option=option:dns-server,${LAN_ADDRESS}
-cache-size=1000
 EOF
 
 cat > "$NFTABLES_FILE" <<EOF

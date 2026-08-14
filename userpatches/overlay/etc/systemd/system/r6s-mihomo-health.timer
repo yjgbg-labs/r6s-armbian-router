@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically check Mihomo connectivity
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Unit=r6s-mihomo-health.service
+
+[Install]
+WantedBy=timers.target

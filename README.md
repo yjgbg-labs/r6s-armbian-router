@@ -11,7 +11,8 @@ kernel so RTL8832BU/RTL8852BU can use the upstream `rtw89_8852bu` driver.
 - A `br-lan` bridge over Armbian `lan1` and `wan`, the two PCIe 2.5GbE
   ports currently used as LAN, at `10.0.0.1/16`.
 - IPv4 forwarding, nftables firewall and WAN masquerading.
-- dnsmasq DHCP service for LAN clients; Mihomo owns DNS on `10.0.0.1`.
+- dnsmasq with DNS disabled (`port=0`) for LAN DHCP only; Mihomo owns DNS on
+  `10.0.0.1` and has a periodic DNS/proxy-egress health check.
 - The custom RSS-capable r8125 driver loaded directly from initramfs with two
   RX and TX queues. The stock r8169 driver is disabled.
 - Stable MAC addresses for every Ethernet interface and `br-lan`.
