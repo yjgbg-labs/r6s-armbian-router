@@ -34,3 +34,15 @@ jobs:
   - name: mihomo-upload
     needs: [mihomo-package]
     run: ./scripts/upload-mihomo.sh
+
+  - name: runtime-package
+    needs: [test]
+    run: ./scripts/package-runtime.sh
+
+  - name: runtime-upload
+    needs: [runtime-package]
+    run: ./scripts/upload-runtime.sh
+
+  - name: runtime-sync
+    needs: [runtime-upload]
+    run: ./scripts/sync-runtime.sh

@@ -137,6 +137,9 @@ grep -q '^BRANCH=current$' "$R6S_PROJECT_ROOT/userpatches/config-r6s-router.conf
 grep -q '^RELEASE=trixie$' "$R6S_PROJECT_ROOT/userpatches/config-r6s-router.conf.sh"
 grep -q '^BSPFREEZE=yes$' "$R6S_PROJECT_ROOT/userpatches/config-r6s-router.conf.sh"
 grep -q '^EXTRAWIFI=no$' "$R6S_PROJECT_ROOT/userpatches/config-r6s-router.conf.sh"
+grep -q 'name: runtime-sync' "$R6S_PROJECT_ROOT/jobs.yaml"
+grep -q 'r6s-router-wifi.service' "$R6S_PROJECT_ROOT/scripts/sync-runtime.sh"
+grep -q 'r6s-mihomo.conf' "$R6S_PROJECT_ROOT/scripts/sync-runtime.sh"
 grep -q '10-dhcp-all-interfaces.yaml' "$R6S_PROJECT_ROOT/userpatches/extensions/r6s-router.sh"
 grep -q '^Before=network-pre.target' \
 	"$R6S_PROJECT_ROOT/userpatches/overlay/etc/systemd/system/r6s-router-prepare.service"
