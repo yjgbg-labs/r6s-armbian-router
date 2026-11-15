@@ -8,7 +8,7 @@ require_command sha256sum
 require_command sudo
 require_command xz
 
-[[ -f "$R6S_ARTIFACT_DIR/latest.env" ]] || die "run groot jobs package first"
+[[ -f "$R6S_ARTIFACT_DIR/latest.env" ]] || die "run mise run package first"
 # shellcheck source=/dev/null
 . "$R6S_ARTIFACT_DIR/latest.env"
 

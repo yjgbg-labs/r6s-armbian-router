@@ -4,7 +4,7 @@ set -euo pipefail
 . "$(dirname -- "$0")/common.sh"
 
 require_command curl
-[[ -f "$R6S_ARTIFACT_DIR/latest.env" ]] || die "run groot jobs package first"
+[[ -f "$R6S_ARTIFACT_DIR/latest.env" ]] || die "run mise run package first"
 # shellcheck source=/dev/null
 . "$R6S_ARTIFACT_DIR/latest.env"
 

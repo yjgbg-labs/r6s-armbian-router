@@ -1,0 +1,48 @@
+[settings]
+jobs = 5
+
+[tasks.test]
+run = "./scripts/test.sh"
+
+[tasks.host-check]
+run = "./scripts/check-host.sh"
+
+[tasks.prepare]
+depends = ["test"]
+run = "./scripts/prepare-build.sh"
+
+[tasks.build]
+depends = ["prepare", "host-check"]
+run = "./scripts/build-image.sh"
+
+[tasks.package]
+depends = ["build"]
+run = "./scripts/package-image.sh"
+
+[tasks.upload]
+depends = ["package"]
+run = "./scripts/upload-image.sh"
+
+[tasks.flash]
+depends = ["package"]
+run = "./scripts/flash-image.sh"
+
+[tasks.mihomo-package]
+depends = ["test"]
+run = "./scripts/package-mihomo.sh"
+
+[tasks.mihomo-upload]
+depends = ["mihomo-package"]
+run = "./scripts/upload-mihomo.sh"
+
+[tasks.runtime-package]
+depends = ["test"]
+run = "./scripts/package-runtime.sh"
+
+[tasks.runtime-upload]
+depends = ["runtime-package"]
+run = "./scripts/upload-runtime.sh"
+
+[tasks.runtime-sync]
+depends = ["runtime-upload"]
+run = "./scripts/sync-runtime.sh"

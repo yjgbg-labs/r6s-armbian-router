@@ -4,7 +4,7 @@ set -euo pipefail
 . "$(dirname -- "$0")/common.sh"
 
 require_command docker
-[[ -x "$R6S_ARMBIAN_DIR/compile.sh" ]] || die "run groot jobs prepare first"
+[[ -x "$R6S_ARMBIAN_DIR/compile.sh" ]] || die "run mise run prepare first"
 [[ -f "$R6S_STAGED_USERPATCHES/config-r6s-router.conf.sh" ]] || \
 	die "staged userpatches are missing"
 

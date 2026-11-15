@@ -5,7 +5,7 @@ set -euo pipefail
 
 require_command curl
 metadata="$R6S_ARTIFACT_DIR/mihomo-latest.env"
-[[ -f "$metadata" ]] || die "run groot jobs mihomo-package first"
+[[ -f "$metadata" ]] || die "run mise run mihomo-package first"
 # shellcheck source=/dev/null
 . "$metadata"
 

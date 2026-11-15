@@ -5,7 +5,7 @@ set -euo pipefail
 
 require_command ssh
 metadata="$R6S_ARTIFACT_DIR/runtime.env"
-[[ -f "$metadata" ]] || die "run groot jobs runtime-package first"
+[[ -f "$metadata" ]] || die "run mise run runtime-package first"
 # shellcheck source=/dev/null
 . "$metadata"
 

@@ -31,14 +31,14 @@ by Git. At minimum, point `SSH_AUTHORIZED_KEY_FILE` to an OpenSSH public key.
 Wi-Fi credentials are deliberately not embedded in the image. Apply the
 runtime router configuration with `groot router write` after first boot.
 
-Normal project operations use `groot jobs`:
+Normal project operations use `mise run`:
 
 ```bash
-groot jobs test
-groot jobs host-check
-groot jobs build
-groot jobs package
-groot jobs upload
+mise run test
+mise run host-check
+mise run build
+mise run package
+mise run upload
 ```
 
 The source build requires Docker, at least 35 GiB free for this project and
@@ -64,7 +64,7 @@ device and an exact destructive confirmation string:
 ```bash
 FLASH_DEVICE=/dev/sdX \
 FLASH_CONFIRM='ERASE /dev/sdX' \
-groot jobs flash
+mise run flash
 ```
 
 Prefer Armbian Imager when writing manually. Do not write to eMMC until the SD
